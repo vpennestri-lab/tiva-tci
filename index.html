@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIVA · Riferimento TCI</title>
+<style>
+  :root{
+    --bg: #0a0d10;
+    --panel: #12171c;
+    --panel-2: #171d23;
+    --line: #232b32;
+    --text: #dfe6ea;
+    --text-dim: #7c8891;
+    --text-faint: #4c5760;
+    --propofol: #f1ede4;
+    --propofol-dim: #8b9aa3;
+    --remi: #e0a341;
+    --remi-dim: #a07d43;
+    --danger: #e5484d;
+    --danger-bg: #2a1416;
+    --ok: #3ddc97;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{min-height:100vh; padding-bottom:40px;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px;}
+
+  /* header */
+  header{border-bottom:1px solid var(--line); padding:18px 0 14px;}
+  .title-row{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  .title-row h1{font-size:18px; font-weight:600; letter-spacing:0.02em; margin:0; color:var(--text);}
+  .title-row h1 span{color:var(--text-dim); font-weight:400;}
+  .clock{font-family:var(--mono); font-size:15px; color:var(--text-dim); letter-spacing:0.03em;}
+  .clock b{color:var(--text); font-weight:600;}
+
+  .disclaimer{
+    margin-top:12px; padding:10px 14px; background:var(--danger-bg); border:1px solid #4a1f22;
+    border-radius:6px; font-size:12.5px; line-height:1.5; color:#f3b9bb;
+  }
+  .disclaimer b{color:#ffd1d2;}
+
+  /* patient panel */
+  .patient{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:16px 0;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+  }
+  .field label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin-bottom:5px;}
+  .field input, .field select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:14px; padding:7px 8px; border-radius:5px;
+  }
+  .field input:disabled, .field select:disabled{opacity:0.55;}
+  .lbm-note{grid-column:1/-1; font-size:11px; color:var(--text-faint); font-family:var(--mono); margin-top:2px;}
+
+  /* controls bar */
+  .controls-bar{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .btn{
+    font-family:var(--sans); font-size:13px; font-weight:600; padding:9px 16px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
+    transition:background .15s, border-color .15s;
+  }
+  .btn:hover{background:#1c232a;}
+  .btn.primary{background:var(--ok); color:#08201a; border-color:var(--ok);}
+  .btn.primary:hover{background:#33c98a;}
+  .btn.stop{background:var(--danger); color:#2a0d0e; border-color:var(--danger);}
+  .btn.ghost{background:transparent;}
+  .speed-group{display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden;}
+  .speed-group button{
+    font-family:var(--mono); font-size:12px; padding:8px 12px; background:var(--panel-2); color:var(--text-dim);
+    border:none; border-right:1px solid var(--line); cursor:pointer;
+  }
+  .speed-group button:last-child{border-right:none;}
+  .speed-group button.active{background:var(--panel-2); color:var(--text); box-shadow:inset 0 -2px 0 var(--ok);}
+  .spacer{flex:1;}
+
+  /* drug panels */
+  .drugs{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:820px){ .drugs{grid-template-columns:1fr;} .patient{grid-template-columns:repeat(2,1fr);} }
+
+  .drug-panel{background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .drug-panel.propofol{border-top:3px solid var(--propofol);}
+  .drug-panel.remi{border-top:3px solid var(--remi);}
+  .drug-head{padding:14px 16px 10px; display:flex; justify-content:space-between; align-items:flex-start;}
+  .drug-name{font-size:15px; font-weight:700; letter-spacing:0.01em;}
+  .drug-panel.propofol .drug-name{color:var(--propofol);}
+  .drug-panel.remi .drug-name{color:var(--remi);}
+  .drug-sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
+
+  .readouts{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); margin:0 0 12px;}
+  .readout{background:var(--panel-2); padding:10px 12px;}
+  .readout .rlabel{font-size:9.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim);}
+  .readout .rval{font-family:var(--mono); font-size:20px; font-weight:600; margin-top:3px; color:var(--text);}
+  .readout .runit{font-size:10.5px; color:var(--text-faint); margin-left:3px;}
+  .drug-panel.propofol .readout .rval.accent{color:var(--propofol);}
+  .drug-panel.remi .readout .rval.accent{color:var(--remi);}
+
+  .panel-body{padding:0 16px 16px;}
+  .row{display:flex; gap:8px; margin-bottom:10px;}
+  .row .field{flex:1;}
+  .field-inline label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); margin-bottom:5px;}
+  .field-inline select, .field-inline input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:13.5px; padding:7px 8px; border-radius:5px;
+  }
+  .presets{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
+  .preset-btn{
+    font-size:11px; padding:6px 10px; border-radius:5px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text-dim); cursor:pointer; font-family:var(--sans);
+  }
+  .preset-btn:hover{color:var(--text); border-color:var(--text-faint);}
+
+  canvas{width:100%; display:block; background:var(--panel-2); border-radius:6px; border:1px solid var(--line);}
+  .chart-label{display:flex; justify-content:space-between; font-size:10px; color:var(--text-faint); margin:8px 0 4px; font-family:var(--mono);}
+  .legend{display:flex; gap:12px; align-items:center;}
+  .legend span{display:inline-flex; align-items:center; gap:4px;}
+  .legend i{width:10px; height:2px; display:inline-block;}
+
+  .maxrate-row{font-size:11px; color:var(--text-faint); display:flex; justify-content:space-between; margin-top:8px;}
+  .cap-warning{color:var(--danger); font-weight:600;}
+
+  /* Farnia phase-preset panel */
+  .scheme-panel{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:16px;}
+  .scheme-head{display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .scheme-head h2{font-size:13px; margin:0; color:var(--text); letter-spacing:0.01em;}
+  .scheme-head .scheme-src{font-size:10.5px; color:var(--text-faint);}
+  .scheme-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  @media (max-width:820px){ .scheme-groups{grid-template-columns:1fr;} }
+  .scheme-group{background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:10px 12px;}
+  .scheme-group .sg-title{font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;}
+  .scheme-btn{
+    display:block; width:100%; text-align:left; background:transparent; border:1px solid var(--line);
+    color:var(--text); font-family:var(--sans); font-size:12.5px; padding:8px 10px; border-radius:5px;
+    margin-bottom:6px; cursor:pointer;
+  }
+  .scheme-btn:last-child{margin-bottom:0;}
+  .scheme-btn:hover{border-color:var(--text-faint); background:#1c232a;}
+  .scheme-btn .sb-vals{display:block; font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:2px;}
+  .scheme-info{
+    margin-top:12px; padding:9px 12px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    font-size:12px; color:var(--text-dim); min-height:16px;
+  }
+  .scheme-info b{color:var(--text);}
+
+  footer{text-align:center; color:var(--text-faint); font-size:11px; margin-top:22px; line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="errorBanner" style="display:none; background:#4a1216; border:1px solid #7a1f24; color:#ffd1d2; font-family:ui-monospace,monospace; font-size:12px; padding:10px 14px; border-radius:6px; margin:14px 0; white-space:pre-wrap;"></div>
+
+
+  <header>
+    <div class="title-row">
+      <h1>TIVA <span>· riferimento target-controlled infusion</span></h1>
+      <div class="clock">T <b id="simClock">00:00:00</b> <span style="color:var(--text-faint); font-size:11px;">(cicli: <b id="tickCounter">0</b>)</span></div>
+    </div>
+    <div id="buildTag" style="font-family:ui-monospace,monospace; font-size:10.5px; color:#c9683f; background:#2a1a10; border:1px solid #5a3319; display:inline-block; padding:3px 8px; border-radius:4px; margin-top:6px;">
+      build 2026-08-12 · v7 — JavaScript non ancora verificato
+    </div>
+    <div class="disclaimer">
+      <b>Solo supporto didattico/consultivo.</b> Simulazione farmacocinetica di popolazione (Marsh, Schnider, Minto): non è un dispositivo TCI certificato e non pilota alcuna pompa reale. Non sostituisce il giudizio clinico, il monitoraggio del paziente (BIS/entropia, parametri emodinamici) né i protocolli della propria struttura. Verificare sempre dosaggi e target con le linee guida locali.
+    </div>
+  </header>
+
+  <div class="patient">
+    <div class="field">
+      <label for="pSex">Sesso</label>
+      <select id="pSex"><option value="M">M</option><option value="F">F</option></select>
+    </div>
+    <div class="field">
+      <label for="pAge">Età (anni)</label>
+      <input id="pAge" type="text" inputmode="decimal" value="55">
+    </div>
+    <div class="field">
+      <label for="pWeight">Peso (kg)</label>
+      <input id="pWeight" type="text" inputmode="decimal" value="75">
+    </div>
+    <div class="field">
+      <label for="pHeight">Altezza (cm)</label>
+      <input id="pHeight" type="text" inputmode="decimal" value="170">
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button class="btn ghost" id="resetPatientBtn" style="width:100%;">Applica / Reset</button>
+    </div>
+    <div class="lbm-note" id="lbmNote"></div>
+  </div>
+
+  <div class="controls-bar">
+    <button class="btn primary" id="playBtn">▶ Avvia</button>
+    <button class="btn stop" id="resetBtn">↺ Azzera simulazione</button>
+    <div class="speed-group" id="speedGroup">
+      <button data-speed="1" class="active">1×</button>
+      <button data-speed="5">5×</button>
+      <button data-speed="25">25×</button>
+      <button data-speed="60">60×</button>
+    </div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="scheme-panel">
+    <div class="scheme-head">
+      <h2>Schema di dosaggio per fase (target al sito effettore)</h2>
+      <span class="scheme-src">rielaborazione da A. Farnia, "TCI: consigli pratici d'uso", Treviso 2017</span>
+    </div>
+    <div class="scheme-groups" id="schemeGroups">
+      <div class="scheme-group">
+        <div class="sg-title">Sedazione</div>
+        <button class="scheme-btn" data-prop="0.6" data-remi="0.6" data-phase="Sedazione · avvio" data-bis="">
+          Avvio<span class="sb-vals">propofol 0.6 · remifentanil 0.6</span>
+        </button>
+        <button class="scheme-btn" data-prop="1.6" data-remi="1.4" data-phase="Sedazione · mantenimento" data-bis="">
+          Mantenimento lieve–moderata<span class="sb-vals">propofol 1.6 · remifentanil 1.4</span>
+        </button>
+        <button class="scheme-btn" data-prop="4.0" data-remi="" data-phase="Sedazione profonda (solo propofol, respiro spontaneo)" data-bis="">
+          Profonda (solo propofol)<span class="sb-vals">propofol 4.0 · remi invariato</span>
+        </button>
+      </div>
+      <div class="scheme-group">
+        <div class="sg-title">Anestesia generale · standard</div>
+        <button class="scheme-btn" data-prop="6.0" data-remi="5.0" data-phase="AG standard · induzione/intubazione" data-bis="BIS 30–50 induzione, &lt;50–55 intubazione">
+          Induzione / intubazione<span class="sb-vals">propofol 6.0 · remifentanil 5.0</span>
+        </button>
+        <button class="scheme-btn" data-prop="3.0" data-remi="4.0" data-phase="AG standard · mantenimento" data-bis="BIS 35–55">
+          Mantenimento<span class="sb-vals">propofol 3.0 · remifentanil 4.0</span>
+        </button>
+        <button class="scheme-btn" data-prop="1.0" data-remi="0.8" data-phase="AG standard · fine intervento / decremento" data-bis="">
+          Fine intervento<span class="sb-vals">propofol 1.0 · remifentanil 0.8</span>
+        </button>
+      </div>
+      <div class="scheme-group">
+        <div class="sg-title">Anestesia generale · analgesica</div>
+        <button class="scheme-btn" data-prop="2.5" data-remi="6.0" data-phase="AG analgesica · induzione/intubazione" data-bis="BIS 30–50 induzione">
+          Induzione / intubazione<span class="sb-vals">propofol 2.5 · remifentanil 6.0</span>
+        </button>
+        <button class="scheme-btn" data-prop="2.4" data-remi="4.0" data-phase="AG analgesica · mantenimento" data-bis="BIS 35–55">
+          Mantenimento<span class="sb-vals">propofol 2.4 · remifentanil 4.0</span>
+        </button>
+        <button class="scheme-btn" data-prop="1.0" data-remi="0.8" data-phase="AG analgesica · fine intervento / decremento" data-bis="">
+          Fine intervento<span class="sb-vals">propofol 1.0 · remifentanil 0.8</span>
+        </button>
+      </div>
+    </div>
+    <div class="scheme-info" id="schemeInfo">Seleziona una fase per impostare insieme i target Ce di propofol e remifentanil.</div>
+  </div>
+
+  <div class="drugs">
+
+    <!-- PROPOFOL -->
+    <div class="drug-panel propofol">
+      <div class="drug-head">
+        <div>
+          <div class="drug-name">Propofol</div>
+          <div class="drug-sub" id="propofolModelLabel">Modello Schnider</div>
+        </div>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="rlabel">Cp plasma</div><div class="rval accent" id="propCp">0.00</div><span class="runit">µg/mL</span></div>
+        <div class="readout"><div class="rlabel">Ce sito effetto</div><div class="rval accent" id="propCe">0.00</div><span class="runit">µg/mL</span></div>
+        <div class="readout"><div class="rlabel">Infusione</div><div class="rval accent" id="propRate">0</div><span class="runit">mg/h</span></div>
+      </div>
+
+      <div class="panel-body">
+        <div class="row">
+          <div class="field-inline">
+            <label for="propModel">Modello farmacocinetico</label>
+            <select id="propModel">
+              <option value="schnider">Schnider (età/peso/altezza)</option>
+              <option value="marsh">Marsh modificato (peso, ke0 1.2)</option>
+            </select>
+          </div>
+          <div class="field-inline">
+            <label for="propTargetMode">Target su</label>
+            <select id="propTargetMode">
+              <option value="effect">Ce (sito effetto)</option>
+              <option value="plasma">Cp (plasma)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field-inline">
+            <label for="propTarget">Target concentrazione (µg/mL)</label>
+            <input id="propTarget" type="text" inputmode="decimal" value="4.0">
+          </div>
+          <div class="field-inline">
+            <label for="propMaxRate">Portata massima pompa (mg/h)</label>
+            <input id="propMaxRate" type="text" inputmode="decimal" value="1200">
+          </div>
+        </div>
+        <div class="presets">
+          <button class="preset-btn" data-drug="prop" data-val="5.0">Induzione 4–6 µg/mL</button>
+          <button class="preset-btn" data-drug="prop" data-val="3.0">Mantenimento 2.5–4 µg/mL</button>
+          <button class="preset-btn" data-drug="prop" data-val="1.5">Risveglio ~1.0–2.0 µg/mL</button>
+        </div>
+
+        <div class="chart-label">
+          <span>Concentrazione</span>
+          <span class="legend">
+            <span><i style="background:var(--propofol-dim)"></i>Cp</span>
+            <span><i style="background:var(--propofol)"></i>Ce</span>
+            <span><i style="background:var(--danger); opacity:.6"></i>target</span>
+          </span>
+        </div>
+        <canvas id="propConcCanvas" height="150"></canvas>
+        <div class="chart-label"><span>Velocità infusione</span><span id="propDose">Dose tot: 0 mg</span></div>
+        <canvas id="propRateCanvas" height="60"></canvas>
+        <div class="maxrate-row"><span id="propCapNote"></span></div>
+      </div>
+    </div>
+
+    <!-- REMIFENTANIL -->
+    <div class="drug-panel remi">
+      <div class="drug-head">
+        <div>
+          <div class="drug-name">Remifentanil</div>
+          <div class="drug-sub">Modello Minto</div>
+        </div>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="rlabel">Cp plasma</div><div class="rval accent" id="remiCp">0.00</div><span class="runit">ng/mL</span></div>
+        <div class="readout"><div class="rlabel">Ce sito effetto</div><div class="rval accent" id="remiCe">0.00</div><span class="runit">ng/mL</span></div>
+        <div class="readout"><div class="rlabel">Infusione</div><div class="rval accent" id="remiRate">0</div><span class="runit">µg/h</span></div>
+      </div>
+
+      <div class="panel-body">
+        <div class="row">
+          <div class="field-inline">
+            <label for="remiTargetMode">Target su</label>
+            <select id="remiTargetMode">
+              <option value="effect">Ce (sito effetto)</option>
+              <option value="plasma">Cp (plasma)</option>
+            </select>
+          </div>
+          <div class="field-inline">
+            <label for="remiTarget">Target concentrazione (ng/mL)</label>
+            <input id="remiTarget" type="text" inputmode="decimal" value="5.0">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field-inline">
+            <label for="remiMaxRate">Portata massima pompa (µg/h)</label>
+            <input id="remiMaxRate" type="text" inputmode="decimal" value="3000">
+          </div>
+          <div class="field-inline"></div>
+        </div>
+        <div class="presets">
+          <button class="preset-btn" data-drug="remi" data-val="6">Induzione 4–8 ng/mL</button>
+          <button class="preset-btn" data-drug="remi" data-val="3">Mantenimento 2–4 ng/mL</button>
+          <button class="preset-btn" data-drug="remi" data-val="1.5">Chirurgia poco stimolante ~1–2 ng/mL</button>
+        </div>
+
+        <div class="chart-label">
+          <span>Concentrazione</span>
+          <span class="legend">
+            <span><i style="background:var(--remi-dim)"></i>Cp</span>
+            <span><i style="background:var(--remi)"></i>Ce</span>
+            <span><i style="background:var(--danger); opacity:.6"></i>target</span>
+          </span>
+        </div>
+        <canvas id="remiConcCanvas" height="150"></canvas>
+        <div class="chart-label"><span>Velocità infusione</span><span id="remiDose">Dose tot: 0 µg</span></div>
+        <canvas id="remiRateCanvas" height="60"></canvas>
+        <div class="maxrate-row"><span id="remiCapNote"></span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Modelli: Marsh 1991 (ke0 modificato 1.2 min⁻¹, Struys 2000) · Schnider 1998 · Minto 1997.<br>
+    Schema di dosaggio per fase: rielaborazione da A. Farnia, "TCI: consigli pratici d'uso", Treviso 2017.<br>
+    Validati per popolazione adulta. Verificare l'appropriatezza del modello e del target per il singolo paziente.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- diagnostics: surface any error on-screen (no dev tools needed) ----------
+  function showError(msg){
+    try{
+      const banner = document.getElementById('errorBanner');
+      if(banner){
+        banner.style.display = 'block';
+        banner.textContent = 'Errore nell\'app: ' + msg + '\n\nPer favore copia questo messaggio e comunicalo per la correzione.';
+      }
+    }catch(e){ /* nothing more we can do */ }
+  }
+  window.addEventListener('error', function(e){
+    showError((e && e.message ? e.message : 'errore sconosciuto') + (e && e.filename ? (' @ ' + e.filename + ':' + e.lineno) : ''));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    showError('Promise rejection: ' + (e && e.reason ? e.reason : 'sconosciuto'));
+  });
+
+  // ---------- PK model builders ----------
+  function leanBodyMass(sex, weight, height){
+    if(sex === 'M') return 1.1*weight - 128*Math.pow(weight/height, 2);
+    return 1.07*weight - 148*Math.pow(weight/height, 2);
+  }
+
+  function marshParams(weight){
+    return { V1: 0.228*weight, k10:0.119, k12:0.112, k13:0.0419, k21:0.055, k31:0.0033, ke0:1.2 };
+  }
+
+  function schniderParams(weight, age, height, lbm){
+    const V1 = 4.27;
+    const V2 = 18.9 - 0.391*(age-53);
+    const Cl1 = 1.89 + 0.0456*(weight-77) - 0.0681*(lbm-59) + 0.0264*(height-177);
+    const Cl2 = 1.29 - 0.024*(age-53);
+    const Cl3 = 0.836;
+    return { V1, k10:Cl1/V1, k12:Cl2/V1, k13:Cl3/V1, k21:Cl2/V2, k31:Cl3/238, ke0:0.456 };
+  }
+
+  function mintoParams(weight, age, lbm){
+    const V1 = 5.1 - 0.0201*(age-40) + 0.072*(lbm-55);
+    const V2 = 9.82 - 0.0811*(age-40) + 0.108*(lbm-55);
+    const Cl1 = 2.6 - 0.0162*(age-40) + 0.0191*(lbm-55);
+    const Cl2 = 2.05 - 0.0301*(age-40);
+    const Cl3 = 0.076 - 0.00113*(age-40);
+    const ke0 = 0.595 - 0.007*(age-40);
+    return { V1, k10:Cl1/V1, k12:Cl2/V1, k13:Cl3/V1, k21:Cl2/V2, k31:Cl3/5.42, ke0 };
+  }
+
+  // ---------- ODE integration (linear 3-compartment + effect site) ----------
+  function deriv(state, p, R){
+    const A1=state[0], A2=state[1], A3=state[2], Ce=state[3];
+    const Cp = A1/p.V1;
+    const dA1 = R - p.k10*A1 - p.k12*A1 + p.k21*A2 - p.k13*A1 + p.k31*A3;
+    const dA2 = p.k12*A1 - p.k21*A2;
+    const dA3 = p.k13*A1 - p.k31*A3;
+    const dCe = p.ke0*(Cp - Ce);
+    return [dA1, dA2, dA3, dCe];
+  }
+
+  function rk4Step(state, p, R, dt){
+    const k1 = deriv(state, p, R);
+    const s2 = state.map((v,i)=>v + dt/2*k1[i]);
+    const k2 = deriv(s2, p, R);
+    const s3 = state.map((v,i)=>v + dt/2*k2[i]);
+    const k3 = deriv(s3, p, R);
+    const s4 = state.map((v,i)=>v + dt*k3[i]);
+    const k4 = deriv(s4, p, R);
+    return state.map((v,i)=>v + dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+  }
+
+  function integrate(state, p, R, totalDt, substeps){
+    let s = state.slice();
+    const dt = totalDt/substeps;
+    for(let i=0;i<substeps;i++) s = rk4Step(s, p, R, dt);
+    return s;
+  }
+
+  // exploit linearity: response(R) = response(0) + R * (response(1) - response(0))
+  function computeControlStep(state, p, targetMode, targetValue, dtCtrl, maxRate){
+    const s0 = integrate(state, p, 0, dtCtrl, 4);
+    const s1 = integrate(state, p, 1, dtCtrl, 4);
+    const val0 = targetMode === 'plasma' ? s0[0]/p.V1 : s0[3];
+    const val1 = targetMode === 'plasma' ? s1[0]/p.V1 : s1[3];
+    let R;
+    const denom = val1 - val0;
+    if(Math.abs(denom) < 1e-9) R = 0;
+    else R = (targetValue - val0) / denom;
+    if(!isFinite(R) || R < 0) R = 0;
+    const capped = R > maxRate;
+    if(capped) R = maxRate;
+    const newState = integrate(state, p, R, dtCtrl, 4);
+    return { R, newState, capped };
+  }
+
+  // ---------- drug runtime state ----------
+  function makeDrug(canvasConcId, canvasRateId){
+    return {
+      state: [0,0,0,0], // A1,A2,A3,Ce
+      params: null,
+      history: [], // {t, cp, ce, r}
+      cumulativeDose: 0,
+      simTimeMin: 0,
+      accumMin: 0,
+      concCanvas: document.getElementById(canvasConcId),
+      rateCanvas: document.getElementById(canvasRateId)
+    };
+  }
+
+  const CTRL_DT = 3/60; // control cycle: 3 seconds, in minutes
+  const HISTORY_MAX = 2200;
+
+  const prop = makeDrug('propConcCanvas','propRateCanvas');
+  const remi = makeDrug('remiConcCanvas','remiRateCanvas');
+
+  let running = false;
+  let speed = 1;
+  let lastTickMs = null;
+  let accumMin = 0; // simulated minutes accumulated across frames, waiting for next control step
+
+  // ---------- DOM refs ----------
+  const el = id => document.getElementById(id);
+  // Robust numeric read from a text input: accepts both "." and "," as decimal separator,
+  // strips anything else. Using type="text" + this parser (instead of <input type="number">)
+  // avoids locale-dependent quirks some browsers have with native number inputs.
+  function numVal(inputEl, fallback){
+    if(!inputEl) return fallback;
+    const raw = String(inputEl.value||'').trim().replace(',', '.').replace(/[^0-9.\-]/g, '');
+    const v = parseFloat(raw);
+    return isFinite(v) ? v : fallback;
+  }
+  const pSex=el('pSex'), pAge=el('pAge'), pWeight=el('pWeight'), pHeight=el('pHeight');
+  const propModel=el('propModel'), propTargetMode=el('propTargetMode'), propTarget=el('propTarget'), propMaxRate=el('propMaxRate');
+  const remiTargetMode=el('remiTargetMode'), remiTarget=el('remiTarget'), remiMaxRate=el('remiMaxRate');
+
+  function currentPatient(){
+    return {
+      sex: pSex.value,
+      age: numVal(pAge, 40),
+      weight: numVal(pWeight, 70),
+      height: numVal(pHeight, 170)
+    };
+  }
+
+  function rebuildParams(){
+    const pt = currentPatient();
+    const lbm = leanBodyMass(pt.sex, pt.weight, pt.height);
+    el('lbmNote').textContent = 'Massa magra (James): ' + lbm.toFixed(1) + ' kg';
+
+    prop.params = propModel.value === 'marsh'
+      ? marshParams(pt.weight)
+      : schniderParams(pt.weight, pt.age, pt.height, lbm);
+    el('propofolModelLabel').textContent = propModel.value === 'marsh'
+      ? 'Modello Marsh modificato' : 'Modello Schnider';
+
+    remi.params = mintoParams(pt.weight, pt.age, lbm);
+  }
+
+  function lockPatientFields(lock){
+    [pSex,pAge,pWeight,pHeight,propModel].forEach(f => f.disabled = lock);
+  }
+
+  function resetSim(){
+    running = false;
+    lastTickMs = null;
+    accumMin = 0;
+    el('playBtn').textContent = '▶ Avvia';
+    prop.state=[0,0,0,0]; prop.history=[{t:0,cp:0,ce:0,r:0}]; prop.cumulativeDose=0; prop.simTimeMin=0; prop.accumMin=0;
+    remi.state=[0,0,0,0]; remi.history=[{t:0,cp:0,ce:0,r:0}]; remi.cumulativeDose=0; remi.simTimeMin=0; remi.accumMin=0;
+    lockPatientFields(false);
+    rebuildParams();
+    updateReadouts();
+    drawAll();
+    el('simClock').textContent = '00:00:00';
+  }
+
+  // ---------- simulation step ----------
+  function stepDrug(d, targetMode, targetValue, maxRatePerMin){
+    const res = computeControlStep(d.state, d.params, targetMode, targetValue, CTRL_DT, maxRatePerMin);
+    d.state = res.newState;
+    d.cumulativeDose += res.R * CTRL_DT;
+    d.simTimeMin += CTRL_DT;
+    const cp = d.state[0]/d.params.V1;
+    const ce = d.state[3];
+    d.history.push({ t: d.simTimeMin, cp: cp, ce: ce, r: res.R });
+    if(d.history.length > HISTORY_MAX) d.history.shift();
+    return res.capped;
+  }
+
+  function tick(dtSimMinutes){
+    accumMin += dtSimMinutes;
+    let iterations = 0;
+    let propCapped=false, remiCapped=false;
+    while(accumMin >= CTRL_DT && iterations < 400){
+      const propMaxPerMin = (numVal(propMaxRate, 0)) / 60; // mg/h -> mg/min
+      const remiMaxPerMin = (numVal(remiMaxRate, 0)) / 60; // ug/h -> ug/min
+      const cP = stepDrug(prop, propTargetMode.value, numVal(propTarget, 0), propMaxPerMin);
+      const cR = stepDrug(remi, remiTargetMode.value, numVal(remiTarget, 0), remiMaxPerMin);
+      propCapped = propCapped || cP;
+      remiCapped = remiCapped || cR;
+      accumMin -= CTRL_DT;
+      iterations++;
+    }
+    el('propCapNote').textContent = propCapped ? '⚠ portata massima raggiunta: target non ancora centrato' : '';
+    el('propCapNote').className = propCapped ? 'cap-warning' : '';
+    el('remiCapNote').textContent = remiCapped ? '⚠ portata massima raggiunta: target non ancora centrato' : '';
+    el('remiCapNote').className = remiCapped ? 'cap-warning' : '';
+  }
+
+  function updateReadouts(){
+    const pCp = prop.state[0]/prop.params.V1, pCe = prop.state[3];
+    const pLastR = prop.history.length ? prop.history[prop.history.length-1].r : 0;
+    el('propCp').textContent = pCp.toFixed(2);
+    el('propCe').textContent = pCe.toFixed(2);
+    el('propRate').textContent = Math.round(pLastR*60); // mg/min -> mg/h
+    el('propDose').textContent = 'Dose tot: ' + prop.cumulativeDose.toFixed(0) + ' mg';
+
+    const rCp = remi.state[0]/remi.params.V1, rCe = remi.state[3];
+    const rLastR = remi.history.length ? remi.history[remi.history.length-1].r : 0;
+    el('remiCp').textContent = rCp.toFixed(2);
+    el('remiCe').textContent = rCe.toFixed(2);
+    el('remiRate').textContent = Math.round(rLastR*60); // ug/min -> ug/h
+    el('remiDose').textContent = 'Dose tot: ' + remi.cumulativeDose.toFixed(0) + ' µg';
+
+    const t = Math.max(prop.simTimeMin, remi.simTimeMin);
+    const totalSec = Math.round(t*60);
+    const hh = String(Math.floor(totalSec/3600)).padStart(2,'0');
+    const mm = String(Math.floor((totalSec%3600)/60)).padStart(2,'0');
+    const ss = String(totalSec%60).padStart(2,'0');
+    el('simClock').textContent = hh+':'+mm+':'+ss;
+  }
+
+  // ---------- charts (plain canvas) ----------
+  function fitCanvas(canvas){
+    const ratio = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || canvas.parentElement.clientWidth;
+    // IMPORTANT: capture the intended CSS height ONCE, before we ever touch canvas.height.
+    // Setting the canvas.height *property* reflects back into the "height" *content attribute*
+    // (per the HTML spec, they're the same reflected value) — so re-reading getAttribute('height')
+    // after resizing returns our own scaled pixel value, not the original CSS size. On any screen
+    // with devicePixelRatio != 1 that turns into runaway growth: 150 -> 150*ratio -> (150*ratio)*ratio
+    // -> ... every redraw, which is exactly the "chart grows to fill the whole page" bug.
+    if(canvas._cssHeightFixed === undefined){
+      canvas._cssHeightFixed = parseInt(canvas.getAttribute('height'),10) || 150;
+    }
+    const cssH = canvas._cssHeightFixed;
+    const needsResize = canvas._lastW !== cssW || canvas._lastH !== cssH || canvas._lastRatio !== ratio;
+    if(needsResize){
+      // Only touch canvas.width/height (which clears + reallocates the bitmap, causing a visible
+      // flash if done every frame) when the on-screen size actually changed.
+      canvas.width = cssW*ratio; canvas.height = cssH*ratio;
+      canvas.style.height = cssH+'px';
+      canvas._ctx = canvas.getContext('2d');
+      canvas._ctx.setTransform(ratio,0,0,ratio,0,0);
+      canvas._lastW = cssW; canvas._lastH = cssH; canvas._lastRatio = ratio;
+    }
+    return { ctx: canvas._ctx || canvas.getContext('2d'), w: cssW, h: cssH };
+  }
+
+  function drawConcChart(d, targetValue, colorDim, colorMain){
+    const { ctx, w, h } = fitCanvas(d.concCanvas);
+    // Paint an opaque background directly (rather than clearRect + relying on the CSS
+    // background showing through a transparent canvas) — on some browsers a transparent
+    // canvas can compositing-flash to white for a frame, especially right after a resize.
+    ctx.fillStyle = '#171d23';
+    ctx.fillRect(0,0,w,h);
+    const pad = {l:6,r:6,t:8,b:6};
+
+    if(d.history.length < 2){
+      // still nothing to plot as a line: show target level and a waiting message so the panel is never blank
+      ctx.fillStyle = 'rgba(223,230,234,0.35)';
+      ctx.font = '11px -apple-system, "Segoe UI", sans-serif';
+      ctx.fillText('In attesa del primo ciclo di infusione…', pad.l, h/2);
+      if(targetValue > 0){
+        const y0 = h - pad.b - (h-pad.t-pad.b) * 0.7;
+        ctx.strokeStyle = 'rgba(229,72,77,0.55)';
+        ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad.l, y0); ctx.lineTo(w-pad.r, y0); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      return;
+    }
+    const maxT = d.history[d.history.length-1].t;
+    const minT = Math.max(0, maxT - 60); // show last 60 sim-minutes window, scrolling
+    const visible = d.history.filter(p => p.t >= minT);
+    let maxC = targetValue*1.25;
+    visible.forEach(p => { maxC = Math.max(maxC, p.cp*1.1, p.ce*1.1); });
+    if(maxC <= 0) maxC = 1;
+
+    const x = t => pad.l + (w-pad.l-pad.r) * ((t-minT)/Math.max(0.0001,(maxT-minT)));
+    const y = c => h-pad.b - (h-pad.t-pad.b) * (c/maxC);
+
+    // target line
+    ctx.strokeStyle = 'rgba(229,72,77,0.55)';
+    ctx.setLineDash([4,4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y(targetValue));
+    ctx.lineTo(w-pad.r, y(targetValue));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Cp
+    ctx.strokeStyle = colorDim; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    visible.forEach((p,i)=>{ const px=x(p.t), py=y(p.cp); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+    ctx.stroke();
+
+    // Ce
+    ctx.strokeStyle = colorMain; ctx.lineWidth = 2;
+    ctx.beginPath();
+    visible.forEach((p,i)=>{ const px=x(p.t), py=y(p.ce); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+    ctx.stroke();
+  }
+
+  function drawRateChart(d, colorMain, maxRatePerMin, unitScale){
+    const { ctx, w, h } = fitCanvas(d.rateCanvas);
+    ctx.fillStyle = '#171d23';
+    ctx.fillRect(0,0,w,h);
+    if(d.history.length < 2){
+      ctx.fillStyle = 'rgba(223,230,234,0.35)';
+      ctx.font = '10px -apple-system, "Segoe UI", sans-serif';
+      ctx.fillText('—', 6, h/2);
+      return;
+    }
+    const pad = {l:6,r:6,t:6,b:4};
+    const maxT = d.history[d.history.length-1].t;
+    const minT = Math.max(0, maxT - 60);
+    const visible = d.history.filter(p => p.t >= minT);
+    const maxR = Math.max(maxRatePerMin*unitScale*1.05, 0.001);
+
+    const x = t => pad.l + (w-pad.l-pad.r) * ((t-minT)/Math.max(0.0001,(maxT-minT)));
+    const y = r => h-pad.b - (h-pad.t-pad.b) * (r/maxR);
+
+    ctx.fillStyle = colorMain + '33';
+    ctx.strokeStyle = colorMain;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x(visible[0].t), y(0));
+    visible.forEach(p=>{ ctx.lineTo(x(p.t), y(p.r*unitScale)); });
+    ctx.lineTo(x(visible[visible.length-1].t), y(0));
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    visible.forEach((p,i)=>{ const px=x(p.t), py=y(p.r*unitScale); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+    ctx.stroke();
+  }
+
+  function drawAll(){
+    drawConcChart(prop, numVal(propTarget, 0), 'rgba(139,154,163,0.8)', '#f1ede4');
+    drawConcChart(remi, numVal(remiTarget, 0), 'rgba(160,125,67,0.8)', '#e0a341');
+    const propMaxPerMin = (numVal(propMaxRate, 0))/60;
+    const remiMaxPerMin = (numVal(remiMaxRate, 0))/60;
+    drawRateChart(prop, '#f1ede4', propMaxPerMin, 60); // display mg/h
+    drawRateChart(remi, '#e0a341', remiMaxPerMin, 60); // display ug/h
+  }
+
+  // ---------- main loop ----------
+  // Uses setInterval + Date.now() rather than requestAnimationFrame: Safari (and other
+  // browsers) can throttle rAF heavily for embedded/sandboxed iframes such as this artifact
+  // preview, which starves the loop and makes the simulated clock fall behind real time.
+  // setInterval is throttled less aggressively for a foreground iframe, and — more importantly —
+  // we always advance the simulation by the TRUE wall-clock time elapsed (via Date.now()),
+  // so even if a tick is delayed, the sim clock catches back up instead of permanently lagging.
+  let loopHandle = null;
+  let tickCount = 0;
+  const REDRAW_MS = 200; // ~5 redraws/sec: smooth enough for a slow-moving TCI simulation,
+                          // and keeps canvas resizes/repaints infrequent (reduces flicker risk)
+
+  function loopTick(){
+    if(!running) return;
+    try{
+      const now = Date.now();
+      if(lastTickMs === null) lastTickMs = now;
+      // Generous clamp: only guards against genuinely extreme gaps (laptop sleep, tab
+      // discarded for minutes) — NOT normal throttling, so the clock never silently lags.
+      const dtRealSec = Math.min((now - lastTickMs)/1000, 30);
+      lastTickMs = now;
+      const dtSimMinutes = (dtRealSec * speed) / 60;
+      tick(dtSimMinutes);
+      updateReadouts();
+      drawAll();
+      tickCount++;
+      const tc = el('tickCounter');
+      if(tc) tc.textContent = String(tickCount);
+    }catch(err){
+      running = false;
+      if(loopHandle){ clearInterval(loopHandle); loopHandle = null; }
+      el('playBtn').textContent = '▶ Avvia';
+      showError((err && err.message) ? err.message : String(err));
+    }
+  }
+
+  // ---------- events ----------
+  el('playBtn').addEventListener('click', function(){
+    try{
+      running = !running;
+      this.textContent = running ? '⏸ Pausa' : '▶ Avvia';
+      if(running){
+        lockPatientFields(true);
+        lastTickMs = null;
+        if(loopHandle) clearInterval(loopHandle);
+        loopHandle = setInterval(loopTick, REDRAW_MS);
+      } else if(loopHandle){
+        clearInterval(loopHandle);
+        loopHandle = null;
+      }
+    }catch(err){
+      showError((err && err.message) ? err.message : String(err));
+    }
+  });
+
+  el('resetBtn').addEventListener('click', function(){
+    if(loopHandle){ clearInterval(loopHandle); loopHandle = null; }
+    resetSim();
+  });
+  el('resetPatientBtn').addEventListener('click', function(){
+    if(loopHandle){ clearInterval(loopHandle); loopHandle = null; }
+    resetSim();
+  });
+
+  document.getElementById('speedGroup').addEventListener('click', function(e){
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    speed = parseFloat(btn.dataset.speed);
+    this.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  document.querySelectorAll('.preset-btn').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const v = this.dataset.val;
+      if(this.dataset.drug === 'prop') propTarget.value = v;
+      else remiTarget.value = v;
+      drawAll();
+    });
+  });
+
+  document.querySelectorAll('.scheme-btn').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      propTarget.value = this.dataset.prop;
+      propTargetMode.value = 'effect';
+      if(this.dataset.remi !== ''){
+        remiTarget.value = this.dataset.remi;
+        remiTargetMode.value = 'effect';
+      }
+      const bis = this.dataset.bis ? ' · target ' + this.dataset.bis : '';
+      el('schemeInfo').innerHTML = '<b>' + this.dataset.phase + '</b>' + bis;
+      drawAll();
+    });
+  });
+
+  [propModel].forEach(f=>f.addEventListener('change', function(){ if(!running) rebuildParams(); drawAll(); }));
+  [pSex,pAge,pWeight,pHeight].forEach(f=>f.addEventListener('change', function(){ if(!running){ rebuildParams(); drawAll(); } }));
+  [propTarget, remiTarget, propTargetMode, remiTargetMode, propMaxRate, remiMaxRate].forEach(f=>{
+    f.addEventListener('input', drawAll);
+  });
+
+  window.addEventListener('resize', drawAll);
+
+  // ---------- init ----------
+  try{
+    prop.history=[{t:0,cp:0,ce:0,r:0}];
+    remi.history=[{t:0,cp:0,ce:0,r:0}];
+    rebuildParams();
+    updateReadouts();
+    drawAll();
+    const bt = el('buildTag');
+    if(bt) bt.textContent = 'build 2026-08-12 · v7 — bug canvas alta densità pixel risolto ✓';
+  }catch(err){
+    showError('inizializzazione fallita: ' + ((err && err.message) ? err.message : String(err)));
+  }
+
+})();
+</script>
+</body>
+</html>
